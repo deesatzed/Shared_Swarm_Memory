@@ -252,6 +252,7 @@ Expected: FAIL, `swarm_memory.decide` cannot be imported.
 **Step 3: Implement the rules**
 
 ```python
+import math
 from dataclasses import dataclass
 
 from swarm_memory.risk import classify
@@ -302,7 +303,7 @@ def evaluate(proposal: Proposal) -> Decision:
         has_prior=proposal.prior_decision_id is not None,
         model_class=proposal.model_class,
     )
-    if proposal.confidence is None or isinstance(proposal.confidence, bool) or not isinstance(proposal.confidence, (int, float)):
+    if proposal.confidence is None or isinstance(proposal.confidence, bool) or not isinstance(proposal.confidence, (int, float)) or not math.isfinite(proposal.confidence):
         return Decision(status="open", reason="missing_confidence", final_class=risk.final_class, bar=risk.bar)
     if proposal.prior_decision_id is not None:
         if proposal.rival_value is None:

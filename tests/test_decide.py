@@ -40,6 +40,18 @@ def test_missing_confidence_stays_open():
     assert result.reason == "missing_confidence"
 
 
+def test_nan_confidence_stays_open():
+    result = evaluate(_proposal(fact_key="genome.caller", confidence=float("nan")))
+    assert result.status == "open"
+    assert result.reason == "missing_confidence"
+
+
+def test_infinite_confidence_stays_open():
+    result = evaluate(_proposal(fact_key="genome.caller", confidence=float("inf")))
+    assert result.status == "open"
+    assert result.reason == "missing_confidence"
+
+
 def test_missing_fact_key_is_an_experience():
     result = evaluate(_proposal(fact_key=None, write_class="fact"))
     assert result.status == "stored_experience"
