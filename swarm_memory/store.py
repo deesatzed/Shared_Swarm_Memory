@@ -53,6 +53,11 @@ class Store:
                     returned_ids_json TEXT,
                     created_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS memory_utility (
+                    decision_id TEXT PRIMARY KEY,
+                    successes REAL NOT NULL,
+                    trials REAL NOT NULL
+                );
                 """
             )
 
@@ -169,6 +174,26 @@ class Store:
                 "SELECT fact_key, decision_id FROM fact_bindings"
             ).fetchall()
         return {row["fact_key"]: row["decision_id"] for row in rows}
+
+    def note_use(self, decision_id: str, reward: float) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO memory_utility (decision_id, successes, trials)
+                VALUES (?, ?, 1)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                    successes = successes + excluded.successes,
+                    trials = trials + 1
+                """,
+                (decision_id, reward),
+            )
+
+    def utilities(self) -> dict[str, tuple[float, float]]:
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT decision_id, successes, trials FROM memory_utility"
+            ).fetchall()
+        return {row["decision_id"]: (float(row["successes"]), float(row["trials"])) for row in rows}
 
     def log_recall(self, query: str, returned_ids: list[str]) -> None:
         with self._connection() as conn:

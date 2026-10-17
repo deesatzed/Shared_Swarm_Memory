@@ -2,7 +2,7 @@
 
 Date: 2026-10-17
 
-This is the design for shared memory in this workspace. It records decisions already made in the design session. It does not claim the code exists yet.
+This is the design for shared memory in this workspace. It records decisions already made in the design session. The package on `feat/swarm-decision-memory` follows it. A live decision-model call and a live Hy-Memory index write are still open.
 
 ## Plain version
 
@@ -22,7 +22,7 @@ Agents share a small set of current facts. A fact becomes current only when a de
 | Traces | context-mode. This package does not store them as facts. |
 | Second cognitive store | Agno memory stays unused. `add_memories_to_context` stays off if Agno is the runtime. |
 
-`.env` holds the OpenRouter key. This design does not copy the key. The workspace root is not a git repository. `.gitignore` ignores `.env`.
+`.env` holds the OpenRouter key. This design does not copy the key. `.gitignore` ignores `.env`. Do not commit `.env`.
 
 ## Models and what each one sees
 
@@ -69,11 +69,11 @@ A first write has no rival. It uses the same risk bar. Being first does not lowe
 
 ### `preference_recency` version 1
 
-A preference may be replaced by a newer preference from the same shared user. The fact-conflict bar does not apply. The old preference stays as history.
+A preference may be replaced by a newer preference with a different value. The same value returns the existing decision. The fact-conflict bar does not apply. The old preference stays as history.
 
 ### `storage_split` version 1
 
-SQLite is the record of models, instances, candidates, bindings, dissent, role cards, and the recall log. Hy-Memory receives one sentence after a bind, and that sentence carries the decision id. Open conflicts are not indexed as settled facts.
+SQLite is the record of models, instances, candidates, bindings, dissent, role cards, the recall log, and recorded use of a binding. Hy-Memory receives one sentence after a bind, and that sentence carries the decision id. Open conflicts are not indexed as settled facts.
 
 ## Write path
 
@@ -82,6 +82,7 @@ A write has a class: fact, experience, preference, or trace.
 - A trace is refused by this package. context-mode keeps tool output.
 - An experience is appended in SQLite. It can be cited later. It does not bind a fact.
 - A fact with no fact key is stored as an experience.
+- A fact or preference whose value equals the current binding returns status `duplicate` and the existing decision id. No new decision instance is stored, and the index is not written again.
 - A fact with a key loads the current binding and builds one decision case.
 - On a bind, SQLite commits the instance and the binding first. Hy-Memory is written second. If the index write fails, the binding remains and `index_dirty` is set.
 - On an open conflict, SQLite records the open instance. Hy-Memory receives nothing.
@@ -90,7 +91,7 @@ A write has a class: fact, experience, preference, or trace.
 
 The role card is the text placed at the start of a turn for that role. It lists current bindings and open conflicts for keys that role acts on. The card stops at 2,000 characters. Bindings come before open conflicts.
 
-`Recall` searches the Hy-Memory index with a limit of 5. Each hit must carry a decision id. SQLite keeps the hit only when that id is still the current binding for its fact key. The tool returns the decision before the sentence and stops at 2,000 characters. The call is appended to the recall log.
+`Recall` searches the Hy-Memory index with a limit of 5. Each hit must carry a decision id. SQLite keeps the hit only when that id is still the current binding for its fact key. Current bindings are ordered by recorded use before packing. A caller reports each returned fact as used or ignored. An unseen binding stays eligible, so a new fact is not buried under one that was shown and ignored. A hit longer than 500 characters is skipped whole. A hit that would pass the remaining 2,000-character budget is skipped, and a later shorter hit can still be kept. Fact text is not cut. The call is appended to the recall log.
 
 ## Failure behavior
 
@@ -101,6 +102,7 @@ The role card is the text placed at the start of a turn for that role. It lists 
 | Model names a lower class than the floor | Code keeps the floor and the code raises. |
 | Model names a class more than one step above the code result | Code raises one step. |
 | Same evidence as the current binding | The flip is rejected. The current binding stays. |
+| Same fact or preference value as the current binding | Status is `duplicate`. The existing decision id is returned. No new instance and no index write. |
 | SQLite commit fails | No index write. |
 | Index write fails after a SQLite commit | Binding stays. `index_dirty` is 1. |
 | Recall hit has no decision id, or the id is not the current binding | The hit is dropped. |
@@ -115,7 +117,8 @@ The role card is the text placed at the start of a turn for that role. It lists 
 | Bind rules | `swarm_memory/decide.py` | Open, bind, or reject |
 | Record | `swarm_memory/store.py` | SQLite |
 | Role card | `swarm_memory/card.py` | Bounded text for one role |
-| Recall filter | `swarm_memory/recall.py` | Drop stale hits, apply the character budget |
+| Usefulness | `swarm_memory/utility.py` | Rank current bindings from recorded use |
+| Recall filter | `swarm_memory/recall.py` | Drop stale hits, skip a hit that does not fit, pack higher scores first |
 | Index port | `swarm_memory/index.py` | Write a bound sentence. Production adapter is Hy-Memory. |
 | Service | `swarm_memory/service.py` | `remember` and `recall` in the order above |
 
@@ -132,5 +135,3 @@ A live Hy-Memory write is a separate step. It waits on an embedding model id.
 - Hy-Memory is not installed in `.venv`.
 - On 2026-10-17 the OpenRouter `/api/v1/models` catalog returned 470 models. None had an embedding id. `openai/text-embedding-3-small`, the id in `swarm_shared_memory.py`, was not in that catalog. The index adapter must not use an unverified embedding id.
 - context-mode is built and is the trace store. This design does not call it yet.
-- No usefulness downranking yet. The recall log is the place that later work will read.
-- The workspace root has no git repository. Do not commit `.env`.

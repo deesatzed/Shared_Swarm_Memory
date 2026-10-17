@@ -110,3 +110,83 @@ def test_preference_cannot_replace_a_bound_fact(tmp_path: Path):
     )
     assert service.store.current_binding("genome.caller")["value"] == "dragen"
     assert len(index.sentences) == 1
+
+
+def test_the_same_fact_value_is_not_written_again(tmp_path: Path):
+    service = MemoryService(tmp_path / "memory.sqlite", RecordingIndex())
+    first = service.remember(
+        fact_key="style.quote",
+        value="concise",
+        agent_id="writer",
+        evidence_ids=["e1"],
+        write_class="fact",
+        confidence=0.90,
+        declared_floor="low",
+    )
+    second = service.remember(
+        fact_key="style.quote",
+        value="concise",
+        agent_id="writer",
+        evidence_ids=["e2"],
+        write_class="fact",
+        confidence=0.99,
+        declared_floor="low",
+    )
+    assert second.status == "duplicate"
+    assert second.decision_id == first.decision_id
+    assert service.store.instance(first.decision_id)["index_dirty"] == 0
+    assert len(service.index.sentences) == 1
+
+
+def test_the_same_preference_value_is_not_written_again(tmp_path: Path):
+    service = MemoryService(tmp_path / "memory.sqlite", RecordingIndex())
+    first = service.remember(
+        fact_key="preference.tone",
+        value="brief",
+        agent_id="writer",
+        evidence_ids=["e1"],
+        write_class="preference",
+        confidence=0.90,
+    )
+    second = service.remember(
+        fact_key="preference.tone",
+        value="brief",
+        agent_id="writer",
+        evidence_ids=["e2"],
+        write_class="preference",
+        confidence=0.20,
+    )
+    assert second.status == "duplicate"
+    assert second.decision_id == first.decision_id
+    assert len(service.index.sentences) == 1
+
+
+def test_recall_puts_a_used_fact_ahead_of_an_ignored_one(tmp_path: Path):
+    service = MemoryService(tmp_path / "memory.sqlite", RecordingIndex())
+    ignored = service.remember(
+        fact_key="style.quote",
+        value="concise",
+        agent_id="writer",
+        evidence_ids=["e1"],
+        write_class="fact",
+        confidence=0.90,
+        declared_floor="low",
+    )
+    used = service.remember(
+        fact_key="style.form",
+        value="bullets",
+        agent_id="writer",
+        evidence_ids=["e1"],
+        write_class="fact",
+        confidence=0.90,
+        declared_floor="low",
+    )
+    for _ in range(8):
+        service.note_use(ignored.decision_id, used=False)
+        service.note_use(used.decision_id, used=True)
+    hits = [
+        {"decision_id": ignored.decision_id, "fact_key": "style.quote", "text": "quote"},
+        {"decision_id": used.decision_id, "fact_key": "style.form", "text": "form"},
+    ]
+    kept = service.recall("style", hits)
+    assert kept[0]["decision_id"] == used.decision_id

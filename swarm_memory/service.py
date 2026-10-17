@@ -5,6 +5,7 @@ from uuid import uuid4
 from swarm_memory.decide import Proposal, evaluate
 from swarm_memory.recall import filter_hits
 from swarm_memory.store import Store
+from swarm_memory.utility import ucb_scores
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,8 @@ class MemoryService:
         if fact_key is not None:
             binding = self.store.current_binding(fact_key)
             if binding is not None:
+                if write_class in {"fact", "preference"} and binding["value"] == value:
+                    return RememberResult(status="duplicate", decision_id=binding["decision_id"])
                 prior_decision_id = binding["decision_id"]
                 prior_value = binding["value"]
                 rival_value = prior_value
@@ -106,8 +109,28 @@ class MemoryService:
         self.store.mark_indexed(decision_id)
         return RememberResult(status="bound", decision_id=decision_id)
 
+    def note_use(self, decision_id: str, *, used: bool) -> None:
+        self.store.note_use(decision_id, 1.0 if used else 0.0)
+
     def recall(self, query: str, hits):
-        kept = filter_hits(hits, self.store.binding_ids(), limit=5, char_budget=2000)
+        decision_ids: list[str] = []
+        text_lengths: dict[str, int] = {}
+        for hit in hits:
+            decision_id = hit.get("decision_id")
+            if not isinstance(decision_id, str):
+                continue
+            decision_ids.append(decision_id)
+            text = hit.get("text")
+            text_lengths[decision_id] = len(text) if isinstance(text, str) else 0
+        scores = ucb_scores(decision_ids, self.store.utilities(), text_lengths)
+        kept = filter_hits(
+            hits,
+            self.store.binding_ids(),
+            limit=5,
+            char_budget=2000,
+            scores=scores,
+            per_item_cap=500,
+        )
         returned_ids = [str(hit["decision_id"]) for hit in kept]
         self.store.log_recall(query, returned_ids)
         return kept
