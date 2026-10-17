@@ -1,0 +1,10 @@
+.env
+.venv/
+context-mode/
+__pycache__/
+.pytest_cache/
+*.sqlite
+*.sqlite3
+data/
+.chroma/
+.hy_memory/
