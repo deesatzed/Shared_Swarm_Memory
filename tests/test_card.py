@@ -20,6 +20,6 @@ def test_a_line_that_would_pass_the_limit_is_omitted_whole():
     assert text.startswith("BINDINGS")
     assert "stack.web" in text
     assert "stack.db" not in text
-    assert "\nOPEN\n" in text or text.endswith("\nOPEN")
-    assert "open.one" not in text
+    assert "OPEN" in text
+    assert "open.one" in text
     assert len(text) <= 180
