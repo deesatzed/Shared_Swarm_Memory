@@ -87,3 +87,26 @@ def test_recall_drops_a_stale_hit_and_logs_the_ids(tmp_path: Path):
     logged = service.store.latest_recall()
     assert logged["query"] == "how should we write"
     assert bound.decision_id in logged["returned_ids"]
+
+
+def test_preference_cannot_replace_a_bound_fact(tmp_path: Path):
+    index = RecordingIndex()
+    service = MemoryService(tmp_path / "memory.sqlite", index)
+    service.remember(
+        fact_key="genome.caller",
+        value="dragen",
+        agent_id="coder",
+        evidence_ids=["e1"],
+        write_class="fact",
+        confidence=0.95,
+    )
+    service.remember(
+        fact_key="genome.caller",
+        value="unreviewed",
+        agent_id="coder",
+        evidence_ids=["e1"],
+        write_class="preference",
+        confidence=float("nan"),
+    )
+    assert service.store.current_binding("genome.caller")["value"] == "dragen"
+    assert len(index.sentences) == 1

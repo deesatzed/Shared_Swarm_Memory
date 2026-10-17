@@ -103,3 +103,39 @@ def test_contested_write_must_cite_both_values():
     ))
     assert result.status == "open"
     assert result.reason == "missing_rival"
+
+
+def test_preference_on_a_fact_key_is_rejected():
+    result = evaluate(_proposal(
+        fact_key="genome.caller",
+        write_class="preference",
+        confidence=0.99,
+    ))
+    assert result.status == "rejected"
+    assert result.reason == "preference_key"
+
+
+def test_preference_without_finite_confidence_stays_open():
+    result = evaluate(_proposal(
+        fact_key="preference.tone",
+        write_class="preference",
+        confidence=float("nan"),
+    ))
+    assert result.status == "open"
+    assert result.reason == "missing_confidence"
+
+
+def test_preference_replaces_an_older_preference_without_the_fact_bar():
+    result = evaluate(_proposal(
+        fact_key="preference.tone",
+        value="warm",
+        write_class="preference",
+        confidence=0.5,
+        evidence_ids=("e1",),
+        prior_decision_id="d1",
+        prior_value="cool",
+        prior_evidence_ids=("e1",),
+    ))
+    assert result.status == "bound"
+    assert result.dissent == "cool"
+    assert result.supersedes == "d1"
