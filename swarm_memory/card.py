@@ -27,16 +27,19 @@ def render_card(
     limit: int = 2000,
 ) -> str:
     lines = ["BINDINGS"]
+    blocked = False
     for item in bindings:
         line = _binding_line(item)
         if not _within(lines + [line, "OPEN"], limit):
+            blocked = True
             break
         lines.append(line)
     if _within(lines + ["OPEN"], limit):
         lines.append("OPEN")
-        for item in opens:
-            line = _open_line(item)
-            if not _within(lines + [line], limit):
-                break
-            lines.append(line)
+        if not blocked:
+            for item in opens:
+                line = _open_line(item)
+                if not _within(lines + [line], limit):
+                    break
+                lines.append(line)
     return "\n".join(lines)
