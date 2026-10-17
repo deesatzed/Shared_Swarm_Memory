@@ -1,6 +1,7 @@
 .env
 .venv/
 context-mode/
+.DS_Store
 __pycache__/
 .pytest_cache/
 *.sqlite
