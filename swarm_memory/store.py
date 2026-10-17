@@ -3,6 +3,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 
 def _utc_now() -> str:
@@ -45,6 +46,12 @@ class Store:
                     value TEXT,
                     risk_floor TEXT,
                     updated_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS recall_log (
+                    id TEXT PRIMARY KEY,
+                    query TEXT,
+                    returned_ids_json TEXT,
+                    created_at TEXT
                 );
                 """
             )
@@ -155,3 +162,34 @@ class Store:
         data = dict(row)
         data["index_dirty"] = int(data["index_dirty"])
         return data
+
+    def binding_ids(self) -> dict[str, str]:
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT fact_key, decision_id FROM fact_bindings"
+            ).fetchall()
+        return {row["fact_key"]: row["decision_id"] for row in rows}
+
+    def log_recall(self, query: str, returned_ids: list[str]) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO recall_log (id, query, returned_ids_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (str(uuid4()), query, json.dumps(list(returned_ids)), _utc_now()),
+            )
+
+    def latest_recall(self) -> dict[str, object] | None:
+        with self._connection() as conn:
+            row = conn.execute(
+                """
+                SELECT query, returned_ids_json
+                FROM recall_log
+                ORDER BY created_at DESC, rowid DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        if row is None:
+            return None
+        return {"query": row["query"], "returned_ids": list(json.loads(row["returned_ids_json"]))}
