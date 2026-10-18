@@ -83,3 +83,38 @@ not block the deterministic correctness work.
 Next concrete action: Stage the reviewed manifest, inspect staged content for
 credentials and unrelated files, create the local checkpoint commit, then write
 the focused Step 2 failing regression tests.
+
+Step/task: 1 and 2 — checkpoint and deterministic runtime correctness.
+
+Change and purpose: Created local checkpoint `ad5c20a`
+(`feat(aether): add model-aware runtime baseline`) on `aether-goal-1-7` without
+pushing. Fixed four runtime failures: full response text now drives handoffs and
+action extraction without being persisted to JSONL traces; verifier status is
+explicit and skipped verification cannot approve; all-quarantined decisions
+return no adoption with reasons; empty trace analysis is explicit incomplete
+evidence. Added eight focused regressions in `tests/test_runtime_correctness.py`
+and `tests/test_swarm_correctness.py`.
+
+Verification command, result, and exit code: the new focused suite first failed
+with two failures and three errors against the old behavior, then passed 8 tests,
+exit 0. `.venv/bin/python -B -m unittest discover -s tests -v` — 22 passed,
+exit 0. `PYTHONPATH=../.. ../../.venv/bin/python -B -m pytest ../../tests -q
+-p no:cacheprovider` — 54 passed, exit 0.
+
+Evidence/receipt path: source tests above; no external request or live model
+evaluation was performed.
+
+Code/harness/model/index versions: `ad5c20a` is the checkpoint parent and
+`1637199` records Step 2 after export review. The package manifest contains 19
+canonical files and all three exported locations matched source byte-for-byte.
+
+Decision or explicit assumption: Complete response text is needed transiently
+for behavior and handoffs, but persistent trace logs retain only previews. A
+missing expected hard trigger means verification was not run and cannot approve.
+
+Remaining limitation or blocker: The required first user workflow is not yet
+selected. Live evaluation remains unauthorized until its data boundary, request
+limit, and spend ceiling are approved.
+
+Next concrete action: rebuild and inspect the distribution, then define the
+workflow and evaluation protocol once the user selects the material use case.

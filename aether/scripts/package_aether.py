@@ -14,6 +14,7 @@ PACKAGE_FILES = (
     "aether_cli2.py", "openrouter_adapter.py", "model_config.py", "pyproject.toml",
     "uv.lock", "README.md", "PROGRESS.md", "DECISIONS.md", ".env.example",
     "scripts/check_models.py", "scripts/package_aether.py", "tests/test_model_refresh.py",
+    "tests/test_runtime_correctness.py", "tests/test_swarm_correctness.py",
     "receipts/model-check-2026-10-18.json",
 )
 

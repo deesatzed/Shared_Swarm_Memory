@@ -42,6 +42,7 @@ class SwarmExecutionResult(BaseModel):
     roles_invoked: list[str]
     handoffs: list[HandoffPacket]
     final_action: str
+    verifier_status: str
     verifier_approved: bool
     total_tokens: int
     total_latency_ms: float
@@ -66,10 +67,11 @@ class AetherSwarmOrchestrator:
         self.fast_bypass_utility_threshold = fast_bypass_utility_threshold
         self.swarm_log_path = Path(swarm_log_path)
         self.swarm_log_path.parent.mkdir(parents=True, exist_ok=True)
+        trace_dir = self.swarm_log_path.parent
 
-        self.librarian = AetherAgentRuntime(harness=librarian_harness, router=self.router, registry=registry, llm=llm)
-        self.worker = AetherAgentRuntime(harness=worker_harness, router=self.router, registry=registry, llm=llm)
-        self.verifier = AetherAgentRuntime(harness=verifier_harness, router=self.router, registry=registry, llm=llm)
+        self.librarian = AetherAgentRuntime(harness=librarian_harness, router=self.router, registry=registry, llm=llm, trace_log_path=trace_dir / "librarian_traces.jsonl")
+        self.worker = AetherAgentRuntime(harness=worker_harness, router=self.router, registry=registry, llm=llm, trace_log_path=trace_dir / "worker_traces.jsonl")
+        self.verifier = AetherAgentRuntime(harness=verifier_harness, router=self.router, registry=registry, llm=llm, trace_log_path=trace_dir / "verifier_traces.jsonl")
 
     def _extract_action_token(self, text: str) -> str:
         for token in ("ACTION=escalate_human", "ACTION=wake_specialist", "ACTION=silent_log", "ACTION=trigger_auto_rollback", "ACTION=page_oncall_sre", "ACTION=log_ok"):
@@ -88,7 +90,7 @@ class AetherSwarmOrchestrator:
             worker_trace = self.worker.execute(query, expected_hard_trigger=expected_hard_trigger)
             roles_invoked.append(self.worker.harness.role_name)
             total_tokens += worker_trace.estimated_tokens
-            final_action = self._extract_action_token(worker_trace.response_preview)
+            final_action = self._extract_action_token(worker_trace.response_text)
             elapsed_ms = (time.perf_counter_ns() - t0) / 1_000_000.0
             return SwarmExecutionResult(
                 query=query,
@@ -96,7 +98,8 @@ class AetherSwarmOrchestrator:
                 roles_invoked=roles_invoked,
                 handoffs=handoffs,
                 final_action=final_action,
-                verifier_approved=True,
+                verifier_status="not_run",
+                verifier_approved=False,
                 total_tokens=total_tokens,
                 total_latency_ms=round(elapsed_ms, 3),
             )
@@ -108,7 +111,7 @@ class AetherSwarmOrchestrator:
         lib_to_worker = HandoffPacket(
             from_role=self.librarian.harness.role_name,
             to_role=self.worker.harness.role_name,
-            payload=f"Task: {query}\nTool: {lib_trace.tool_executed}\nSynthesis: {lib_trace.response_preview}",
+            payload=f"Task: {query}\nTool: {lib_trace.tool_executed}\nSynthesis: {lib_trace.response_text}",
             activated_scaffolds=lib_trace.reconstructed_node_ids,
             tool_used=lib_trace.tool_executed,
         )
@@ -117,7 +120,7 @@ class AetherSwarmOrchestrator:
         worker_trace = self.worker.execute(lib_to_worker.payload, persist_trace=True)
         roles_invoked.append(self.worker.harness.role_name)
         total_tokens += worker_trace.estimated_tokens
-        worker_action = self._extract_action_token(worker_trace.response_preview)
+        worker_action = self._extract_action_token(worker_trace.response_text)
 
         worker_to_verifier = HandoffPacket(
             from_role=self.worker.harness.role_name,
@@ -131,7 +134,7 @@ class AetherSwarmOrchestrator:
         verifier_trace = self.verifier.execute(worker_to_verifier.payload, expected_hard_trigger=expected_hard_trigger, persist_trace=True)
         roles_invoked.append(self.verifier.harness.role_name)
         total_tokens += verifier_trace.estimated_tokens
-        verifier_action = self._extract_action_token(verifier_trace.response_preview)
+        verifier_action = self._extract_action_token(verifier_trace.response_text)
 
         elapsed_ms = (time.perf_counter_ns() - t0) / 1_000_000.0
         return SwarmExecutionResult(
@@ -140,7 +143,8 @@ class AetherSwarmOrchestrator:
             roles_invoked=roles_invoked,
             handoffs=handoffs,
             final_action=verifier_action,
-            verifier_approved=verifier_trace.guardrail_passed,
+            verifier_status=verifier_trace.verification_status,
+            verifier_approved=verifier_trace.verification_status == "passed",
             total_tokens=total_tokens,
             total_latency_ms=round(elapsed_ms, 3),
         )

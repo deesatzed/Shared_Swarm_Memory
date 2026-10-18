@@ -87,6 +87,7 @@ class CandidateScore(BaseModel):
     weighted_total: float = 0.0
     is_pareto_optimal: bool = False
     quarantined: bool = False
+    quarantine_reasons: list[str] = Field(default_factory=list)
     rationale: str = ""
 
 
@@ -96,7 +97,7 @@ class DecisionRecord(BaseModel):
     context_summary: str
     weights_used: dict[str, float]
     candidates: list[CandidateScore]
-    selected_candidate_id: str
+    selected_candidate_id: str | None = None
     adoption_rationale: str
 
 
@@ -133,7 +134,9 @@ class ExecutionTrace(BaseModel):
     estimated_tokens: int = 0
     total_latency_ms: float = 0.0
     guardrail_passed: bool = True
+    verification_status: str = "not_run"
     verifier_critique: str = "OK"
+    response_text: str = ""
     response_preview: str = ""
 
 
@@ -410,15 +413,22 @@ class MultiCriteriaDecisionModel:
         norm_weights = weights.normalize()
 
         for cand in candidates:
-            if (
-                cand.scores.get("safety_robustness", 0.0) < min_safety_score
-                or cand.scores.get("evidence_strength", 0.0) < min_evidence_score
-            ):
+            safety_score = cand.scores.get("safety_robustness", 0.0)
+            evidence_score = cand.scores.get("evidence_strength", 0.0)
+            if safety_score < min_safety_score:
                 cand.quarantined = True
+                cand.quarantine_reasons.append(
+                    f"safety_robustness {safety_score} is below {min_safety_score}"
+                )
+            if evidence_score < min_evidence_score:
+                cand.quarantined = True
+                cand.quarantine_reasons.append(
+                    f"evidence_strength {evidence_score} is below {min_evidence_score}"
+                )
             total = sum(cand.scores.get(crit, 0.0) * w for crit, w in norm_weights.items())
             cand.weighted_total = round(total, 4)
 
-        viable = [c for c in candidates if not c.quarantined] or candidates
+        viable = [c for c in candidates if not c.quarantined]
         for i, cand_a in enumerate(viable):
             dominated = False
             for j, cand_b in enumerate(viable):
@@ -432,7 +442,16 @@ class MultiCriteriaDecisionModel:
             cand_a.is_pareto_optimal = not dominated
 
         ranked = sorted(candidates, key=lambda c: (not c.quarantined, c.is_pareto_optimal, c.weighted_total), reverse=True)
-        winner = ranked[0]
+        winner = ranked[0] if viable else None
+
+        if winner is None:
+            return DecisionRecord(
+                context_summary=context_summary,
+                weights_used=norm_weights,
+                candidates=ranked,
+                selected_candidate_id=None,
+                adoption_rationale="No candidate adopted: all candidates are quarantined.",
+            )
 
         return DecisionRecord(
             context_summary=context_summary,
@@ -500,11 +519,17 @@ class AetherAgentRuntime:
         response = self.llm.generate(assembled_prompt, full_user_input)
         elapsed_ms = (time.perf_counter_ns() - t0) / 1_000_000.0
 
-        guardrail_passed = True
-        critique = "OK"
-        if expected_hard_trigger and expected_hard_trigger.lower() not in response.lower():
-            guardrail_passed = False
-            critique = f"MISSED_TRIGGER: Expected '{expected_hard_trigger}'"
+        verification_status = "not_run"
+        guardrail_passed = False
+        critique = "NOT_VERIFIED: no expected hard trigger was supplied"
+        if expected_hard_trigger:
+            if expected_hard_trigger.lower() in response.lower():
+                verification_status = "passed"
+                guardrail_passed = True
+                critique = "OK"
+            else:
+                verification_status = "failed"
+                critique = f"MISSED_TRIGGER: Expected '{expected_hard_trigger}'"
 
         estimated_tokens = (len(assembled_prompt) + len(full_user_input) + len(response)) // 4
 
@@ -517,13 +542,17 @@ class AetherAgentRuntime:
             estimated_tokens=estimated_tokens,
             total_latency_ms=round(elapsed_ms, 3),
             guardrail_passed=guardrail_passed,
+            verification_status=verification_status,
             verifier_critique=critique,
+            response_text=response,
             response_preview=response[:160],
         )
 
         if persist_trace:
             with self.trace_log_path.open("a", encoding="utf-8") as f:
-                f.write(trace.model_dump_json() + "\n")
+                # Full model output stays in the in-memory trace for behavior and
+                # handoffs; persistent trace logs retain only the display preview.
+                f.write(json.dumps(trace.model_dump(exclude={"response_text"})) + "\n")
         return trace
 
 
@@ -532,6 +561,16 @@ class TraceAnalyzer:
     def analyze(traces: list[ExecutionTrace], scenarios: list[Any] | None = None) -> TraceAnomalyReport:
         noise_queries = {s.query for s in scenarios if getattr(s, "is_noise_query", False)} if scenarios else set()
         total = len(traces)
+        if total == 0:
+            return TraceAnomalyReport(
+                total_traces=0,
+                avg_tokens=0.0,
+                avg_latency_ms=0.0,
+                guardrail_pass_rate=0.0,
+                unnecessary_reconstruction_rate=0.0,
+                missed_hard_trigger_count=0,
+                detected_failure_modes=["NO_TRACES: No traces available for analysis."],
+            )
         avg_tokens = sum(t.estimated_tokens for t in traces) / total
         avg_latency = sum(t.total_latency_ms for t in traces) / total
         passed = sum(1 for t in traces if t.guardrail_passed)

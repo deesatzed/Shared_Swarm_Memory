@@ -93,8 +93,8 @@ complete, explicit re-embedding migration.
 
 | Step | Deliverable | Dependency | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| 1 | Scoped Git checkpoint | Execution instruction | Not started | Pending |
-| 2 | Correctness fixes and regression tests | 1 | Not started | Pending |
+| 1 | Scoped Git checkpoint | Execution instruction | Complete | `ad5c20a`; 14 Aether + 54 main tests |
+| 2 | Correctness fixes and regression tests | 1 | Complete | 8 focused regressions; 22 Aether + 54 main tests |
 | 3 | Approved first workflow and acceptance criteria | 2 | Not started | Pending |
 | 4 | Typed decisions integrated into that workflow | 3 | Not started | Pending |
 | 5 | Current-fact memory retrieval integrated | 4 | Not started | Pending |
