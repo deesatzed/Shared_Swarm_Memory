@@ -12,6 +12,7 @@ from swarm_memory.utility import ucb_scores
 class RememberResult:
     status: str
     decision_id: str | None
+    candidate_id: str | None = None
 
 
 class MemoryService:
@@ -51,6 +52,9 @@ class MemoryService:
                 else:
                     prior_evidence_ids = tuple(json.loads(instance["evidence_json"]))
 
+        evidence_agents = tuple(
+            agent for agent in self.store.experience_agents(evidence_ids) if agent != agent_id
+        )
         proposal = Proposal(
             fact_key=fact_key,
             value=value,
@@ -66,14 +70,16 @@ class MemoryService:
             prior_decision_id=prior_decision_id,
             prior_value=prior_value,
             prior_evidence_ids=prior_evidence_ids,
+            evidence_agents=evidence_agents,
         )
         decision = evaluate(proposal)
         if decision.status == "ignored_trace":
             return RememberResult(status="ignored_trace", decision_id=None)
 
         candidate_class = "experience" if decision.status == "stored_experience" else write_class
+        candidate_id = str(uuid4())
         self.store.save_candidate(
-            str(uuid4()),
+            candidate_id,
             fact_key,
             value,
             agent_id,
@@ -81,7 +87,7 @@ class MemoryService:
             candidate_class,
         )
         if decision.status not in {"open", "rejected", "bound"}:
-            return RememberResult(status=decision.status, decision_id=None)
+            return RememberResult(status=decision.status, decision_id=None, candidate_id=candidate_id)
 
         decision_id = str(uuid4())
         self.store.save_instance(
@@ -98,16 +104,16 @@ class MemoryService:
             supersedes=decision.supersedes,
         )
         if decision.status != "bound":
-            return RememberResult(status=decision.status, decision_id=decision_id)
+            return RememberResult(status=decision.status, decision_id=decision_id, candidate_id=candidate_id)
 
         self.store.bind(fact_key, decision_id, value, decision.final_class or "low")
         text = f"{fact_key} value={value} decision_id={decision_id}"
         try:
             self.index.write_bound_sentence(decision_id, fact_key, text)
         except Exception:
-            return RememberResult(status="bound", decision_id=decision_id)
+            return RememberResult(status="bound", decision_id=decision_id, candidate_id=candidate_id)
         self.store.mark_indexed(decision_id)
-        return RememberResult(status="bound", decision_id=decision_id)
+        return RememberResult(status="bound", decision_id=decision_id, candidate_id=candidate_id)
 
     def note_use(self, decision_id: str, *, used: bool) -> None:
         self.store.note_use(decision_id, 1.0 if used else 0.0)

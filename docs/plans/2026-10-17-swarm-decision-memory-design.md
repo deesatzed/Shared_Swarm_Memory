@@ -56,7 +56,8 @@ Order of classification:
 
 A contested fact becomes current only when all of these are true:
 
-- Confidence is a number and is greater than or equal to the bar.
+- Confidence is a number from 0 to 1 and is greater than or equal to the bar.
+- For a high or critical class (including any replacement of a bound value), at least two evidence ids name stored experiences, written by at least two different agents, none of them the proposing agent. Below that the instance stays open as `insufficient_evidence`. A standard or low class needs no evidence ids.
 - Both candidates are cited.
 - The losing value is stored as dissent.
 - If a value is already bound, the new instance cites at least one evidence id the earlier instance did not use.
@@ -101,6 +102,8 @@ The role card is the text placed at the start of a turn for that role. It lists 
 | Decision-model output is missing a required field, or the call fails | Instance stays open. No index write. |
 | Model names a lower class than the floor | Code keeps the floor and the code raises. |
 | Model names a class more than one step above the code result | Code raises one step. |
+| Confidence below 0 or above 1 | Instance stays open as `confidence_out_of_range`. |
+| High or critical write without two independent experiences | Instance stays open as `insufficient_evidence`. No index write. |
 | Same evidence as the current binding | The flip is rejected. The current binding stays. |
 | Same fact or preference value as the current binding | Status is `duplicate`. The existing decision id is returned. No new instance and no index write. |
 | SQLite commit fails | No index write. |

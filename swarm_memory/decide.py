@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from swarm_memory.risk import classify
 
 
+EVIDENCE_CLASSES = frozenset({"high", "critical"})
+
+
 @dataclass(frozen=True)
 class Proposal:
     fact_key: str | None
@@ -20,6 +23,7 @@ class Proposal:
     prior_decision_id: str | None
     prior_value: str | None
     prior_evidence_ids: tuple[str, ...]
+    evidence_agents: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,10 @@ class Decision:
 
 def _confidence_missing(confidence: float | None) -> bool:
     return confidence is None or isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not math.isfinite(confidence)
+
+
+def _has_independent_evidence(evidence_agents: tuple[str, ...]) -> bool:
+    return len(evidence_agents) >= 2 and len(set(evidence_agents)) >= 2
 
 
 def evaluate(proposal: Proposal) -> Decision:
@@ -69,6 +77,8 @@ def evaluate(proposal: Proposal) -> Decision:
     )
     if _confidence_missing(proposal.confidence):
         return Decision(status="open", reason="missing_confidence", final_class=risk.final_class, bar=risk.bar)
+    if not 0 <= proposal.confidence <= 1:
+        return Decision(status="open", reason="confidence_out_of_range", final_class=risk.final_class, bar=risk.bar, confidence=float(proposal.confidence))
     if proposal.prior_decision_id is not None:
         if proposal.rival_value is None:
             return Decision(status="open", reason="missing_rival", final_class=risk.final_class, bar=risk.bar, confidence=float(proposal.confidence))
@@ -76,6 +86,8 @@ def evaluate(proposal: Proposal) -> Decision:
             return Decision(status="rejected", reason="same_evidence", final_class=risk.final_class, bar=risk.bar, confidence=float(proposal.confidence))
     if float(proposal.confidence) < risk.bar:
         return Decision(status="open", reason="below_bar", final_class=risk.final_class, bar=risk.bar, confidence=float(proposal.confidence))
+    if risk.final_class in EVIDENCE_CLASSES and not _has_independent_evidence(proposal.evidence_agents):
+        return Decision(status="open", reason="insufficient_evidence", final_class=risk.final_class, bar=risk.bar, confidence=float(proposal.confidence))
     return Decision(
         status="bound",
         reason="cleared_bar",

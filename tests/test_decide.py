@@ -17,6 +17,7 @@ def _proposal(**kwargs):
         prior_decision_id=None,
         prior_value=None,
         prior_evidence_ids=(),
+        evidence_agents=(),
     )
     base.update(kwargs)
     return Proposal(**base)
@@ -29,7 +30,7 @@ def test_first_clinical_write_below_bar_stays_open():
 
 
 def test_first_clinical_write_at_bar_binds():
-    result = evaluate(_proposal(fact_key="genome.caller", confidence=0.92))
+    result = evaluate(_proposal(fact_key="genome.caller", confidence=0.92, evidence_agents=("a", "b")))
     assert result.status == "bound"
     assert result.value == "fastapi"
 
@@ -85,6 +86,7 @@ def test_new_evidence_can_supersede_when_the_bar_is_met():
         prior_value="fastapi",
         prior_evidence_ids=("e1",),
         confidence=0.95,
+        evidence_agents=("a", "b"),
     ))
     assert result.status == "bound"
     assert result.supersedes == "d1"
@@ -139,3 +141,61 @@ def test_preference_replaces_an_older_preference_without_the_fact_bar():
     assert result.status == "bound"
     assert result.dissent == "cool"
     assert result.supersedes == "d1"
+
+
+def test_standard_key_binds_without_independent_evidence():
+    result = evaluate(_proposal(confidence=0.85, evidence_agents=()))
+    assert result.status == "bound"
+
+
+def test_high_key_with_no_independent_evidence_stays_open():
+    result = evaluate(_proposal(fact_key="genome.caller", confidence=0.99, evidence_agents=()))
+    assert result.status == "open"
+    assert result.reason == "insufficient_evidence"
+
+
+def test_high_key_with_one_independent_evidence_stays_open():
+    result = evaluate(_proposal(fact_key="genome.caller", confidence=0.99, evidence_agents=("a",)))
+    assert result.status == "open"
+    assert result.reason == "insufficient_evidence"
+
+
+def test_high_key_with_two_evidence_ids_from_one_agent_stays_open():
+    result = evaluate(_proposal(fact_key="genome.caller", confidence=0.99, evidence_agents=("a", "a")))
+    assert result.status == "open"
+    assert result.reason == "insufficient_evidence"
+
+
+def test_critical_key_needs_two_agents_too():
+    one = evaluate(_proposal(action="publish", confidence=0.99, evidence_agents=("a", "a")))
+    two = evaluate(_proposal(action="publish", confidence=0.99, evidence_agents=("a", "b")))
+    assert one.status == "open"
+    assert one.reason == "insufficient_evidence"
+    assert two.status == "bound"
+
+
+def test_replacing_a_standard_value_counts_as_high_and_needs_evidence():
+    result = evaluate(_proposal(
+        value="flask",
+        rival_value="fastapi",
+        evidence_ids=("e1", "e2"),
+        prior_decision_id="d1",
+        prior_value="fastapi",
+        prior_evidence_ids=("e1",),
+        confidence=0.95,
+        evidence_agents=("a",),
+    ))
+    assert result.status == "open"
+    assert result.reason == "insufficient_evidence"
+
+
+def test_confidence_above_one_stays_open():
+    result = evaluate(_proposal(confidence=1.5))
+    assert result.status == "open"
+    assert result.reason == "confidence_out_of_range"
+
+
+def test_negative_confidence_stays_open():
+    result = evaluate(_proposal(confidence=-0.1))
+    assert result.status == "open"
+    assert result.reason == "confidence_out_of_range"

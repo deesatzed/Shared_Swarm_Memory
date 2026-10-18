@@ -84,6 +84,19 @@ class Store:
                 (candidate_id, fact_key, value, agent_id, json.dumps(evidence_ids), write_class, _utc_now()),
             )
 
+    def experience_agents(self, candidate_ids) -> list[str]:
+        """Agent id of each id that names a stored experience. Other ids are skipped."""
+        ids = list(dict.fromkeys(candidate_ids))
+        if not ids:
+            return []
+        marks = ",".join("?" for _ in ids)
+        with self._connection() as conn:
+            rows = conn.execute(
+                f"SELECT agent_id FROM candidates WHERE write_class = 'experience' AND id IN ({marks})",
+                ids,
+            ).fetchall()
+        return [row["agent_id"] for row in rows]
+
     def save_instance(
         self,
         instance_id: str,
