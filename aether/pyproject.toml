@@ -1,0 +1,9 @@
+[project]
+name = "aether"
+version = "1.1.0"
+description = "Universal Decision-Swarm & Reconstructive Memory Harness Runtime"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "httpx>=0.24",
+]

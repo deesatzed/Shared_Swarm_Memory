@@ -1,0 +1,106 @@
+{
+  "timestamp_utc": "2026-10-18T14:45:31.415330+00:00",
+  "checks": [
+    {
+      "group": "embeddings",
+      "requested_model": "google/gemini-embedding-2",
+      "dimensions": 3072,
+      "validated": true,
+      "served_model": "gemini-embedding-2",
+      "usage": {
+        "prompt_tokens": 10,
+        "total_tokens": 10,
+        "cost": 2.2e-06
+      },
+      "status": "passed",
+      "latency_ms": 676.6
+    },
+    {
+      "group": "embeddings",
+      "requested_model": "liquid/lfm-2.5-embedding-350m:free",
+      "dimensions": 1024,
+      "validated": true,
+      "served_model": "openrouter:LiquidAI/LFM2.5-Embedding-350M:free",
+      "usage": {
+        "prompt_tokens": 11,
+        "total_tokens": 11,
+        "cost": 0
+      },
+      "status": "passed",
+      "latency_ms": 248.0
+    },
+    {
+      "group": "decisions",
+      "requested_model": "liquid/d1-ultra",
+      "choice": "green",
+      "validated": true,
+      "served_model": "liquid/d1-ultra-20261015",
+      "usage": {
+        "input_tokens": 56,
+        "output_tokens": 0,
+        "cost": 2.352e-06
+      },
+      "status": "passed",
+      "latency_ms": 190.3
+    },
+    {
+      "group": "decisions",
+      "requested_model": "typesafe/jev-1.14",
+      "choice": "green",
+      "validated": true,
+      "served_model": "typesafe/jev-1.14-20261014",
+      "usage": {
+        "input_tokens": 335,
+        "output_tokens": 38,
+        "cost": 1.407e-05
+      },
+      "status": "passed",
+      "latency_ms": 172.2
+    },
+    {
+      "group": "text",
+      "requested_model": "deepseek/deepseek-v4.1-flash-1017",
+      "validated": true,
+      "completion_characters": 9,
+      "served_model": "deepseek/deepseek-v4.1-flash-1017",
+      "usage": {
+        "prompt_tokens": 18,
+        "completion_tokens": 18,
+        "total_tokens": 36,
+        "cost": 1.044e-05
+      },
+      "status": "passed",
+      "latency_ms": 291.1
+    },
+    {
+      "group": "text",
+      "requested_model": "nvidia/nemotron-3.5-super-vl",
+      "validated": true,
+      "completion_characters": 9,
+      "served_model": "nvidia/nemotron-3.5-super-vl",
+      "usage": {
+        "prompt_tokens": 30,
+        "completion_tokens": 56,
+        "total_tokens": 86,
+        "cost": 3.25e-05
+      },
+      "status": "passed",
+      "latency_ms": 10469.2
+    },
+    {
+      "group": "text",
+      "requested_model": "google/gemini-4-argon",
+      "validated": true,
+      "completion_characters": 9,
+      "served_model": "google/gemini-4-argon",
+      "usage": {
+        "prompt_tokens": 50,
+        "completion_tokens": 8,
+        "total_tokens": 58,
+        "cost": 0.00018
+      },
+      "status": "passed",
+      "latency_ms": 2109.9
+    }
+  ]
+}

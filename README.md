@@ -1,5 +1,7 @@
 # Hy-Memory Agent Swarm Shared Memory Scaffold
 
+Model selection updated 2026-10-18 by explicit user instruction. See [MODEL_CONFIGURATION.md](MODEL_CONFIGURATION.md) for the current seven-model configuration and live connection receipts. Earlier model IDs and catalog-availability notes below are historical.
+
 Minimal, runnable scaffold showing how multiple agents (or a swarm) can share
 long-term memory via the Hy-Memory SDK while using OpenRouter for all LLM and
 embedding calls (no local GPU/CPU inference).

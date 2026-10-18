@@ -36,9 +36,9 @@ OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "sk-or-v1-YOUR_KEY_HERE")
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 # Choose models freely on OpenRouter
-LLM_MODEL = "tencent/hy3-preview"          # or "anthropic/claude-sonnet-4", "deepseek/deepseek-chat", etc.
-EMBED_MODEL = "openai/text-embedding-3-small"
-EMBED_DIMS = 1536
+LLM_MODEL = "deepseek/deepseek-v4.1-flash-1017"
+EMBED_MODEL = "google/gemini-embedding-2"
+EMBED_DIMS = 3072
 
 SHARED_USER_ID = "swarm_project_alpha"     # All agents share this user_id for shared memory
 WORKSPACE_ID = "github.com/your-org/your-repo"  # For coding/working scenes

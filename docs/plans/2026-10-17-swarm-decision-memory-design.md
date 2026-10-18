@@ -1,5 +1,7 @@
 # Shared swarm memory: decision models first
 
+2026-10-18 model update: the user selected `liquid/d1-ultra` and `typesafe/jev-1.14` for typed decisions, the three current text models, and two embedding models documented in [MODEL_CONFIGURATION.md](../../MODEL_CONFIGURATION.md). This supersedes earlier model IDs and generative decision-output assumptions below. System One returns typed probabilities; live binding remains unconnected and risk bars/evidence rules are unchanged.
+
 Date: 2026-10-17
 
 This is the design for shared memory in this workspace. It records decisions already made in the design session. The package on `feat/swarm-decision-memory` follows it. A live decision-model call and a live Hy-Memory index write are still open.
