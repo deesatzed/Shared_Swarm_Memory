@@ -105,7 +105,7 @@ Evidence/receipt path: source tests above; no external request or live model
 evaluation was performed.
 
 Code/harness/model/index versions: `ad5c20a` is the checkpoint parent and
-`1637199` records Step 2 after export review. The package manifest contains 19
+`f07b94f` records Step 2 after export review. The package manifest contains 19
 canonical files and all three exported locations matched source byte-for-byte.
 
 Decision or explicit assumption: Complete response text is needed transiently
