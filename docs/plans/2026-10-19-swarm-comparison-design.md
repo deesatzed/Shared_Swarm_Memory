@@ -99,10 +99,11 @@ Scoring reads only the value fields. An agent's prose can mention an old value (
 
 The base is the existing `swarm_memory` package and its 54 tests. Only additions that close an M1 failure path are built.
 
-1. **Key registry.** `keys.json` declares each key once: type, unit, risk floor, sensitivity, shelf life, and the roles that use it. An undeclared key cannot bind; it stays a note. The registry floor replaces the prefix guesses in `risk.py` for registered keys.
+1. **Key registry.** `keys.json` declares each key once: type, unit, risk floor, sensitivity, shelf life, and the roles that use it. An undeclared key cannot bind; it stays a note. The registry's floor is the key's declared floor. The prefix rules in `risk.py` can still raise the class, never lower it.
 2. **Captures.** Only the harness records captures. A capture is a file at a commit (path, commit, hash, content) or a command run (command, exit code, output hash). Agents cite capture ids. Agents have no way to write one.
 3. **Decision models.**
    - `liquid/d1-ultra` receives one packed case: the key, the candidate values, the cited capture text and the current binding. It returns a choice among the candidates or "none", with a probability.
+   - How it is asked: one yes/no (`noul`) question per candidate. The documented System One response gives a probability for that question type, and the `choice` type's probability field is undocumented. The proposed value is chosen only when it has the highest probability. A rival scoring higher, or a tie, keeps the fact open.
    - That probability replaces the proposer's self-reported confidence. Code applies the bar.
    - In this version d1-ultra is not asked for a risk class. The registry floor and the existing code rules set the class.
    - For high and critical keys, `google/gemini-4-argon` must also approve.
